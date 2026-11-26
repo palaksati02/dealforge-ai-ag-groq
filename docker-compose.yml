@@ -28,6 +28,8 @@ services:
       ADK_SERVICE_HOST: adk_service
       ADK_SERVICE_PORT: "8001"
       ADK_PUBLIC_URL: http://adk_service:8001
+      USE_LLM_AGENTS: "true"
+      DEMO_MODE: "false"
     ports:
       - "8001:8001"
     volumes:
@@ -55,6 +57,8 @@ services:
       ADK_SERVICE_HOST: adk_service
       ADK_SERVICE_PORT: "8001"
       ADK_AUTOSTART: "False"
+      USE_LLM_AGENTS: "true"
+      DEMO_MODE: "false"
     ports:
       - "80:8000"
       - "8000:8000"
