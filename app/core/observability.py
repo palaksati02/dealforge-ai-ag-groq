@@ -441,7 +441,7 @@ class ObservabilityTracer:
             platform = "Docker container"
         else:
             platform = "Local process"
-        return {"platform": platform, "public_url": os.environ.get("RENDER_EXTERNAL_URL"),
+        return {"platform": platform, "public_url": os.environ.get("PUBLIC_URL") or os.environ.get("RENDER_EXTERNAL_URL"),
                 "environment": settings.APP_ENV, "database": __import__("app.db.session", fromlist=["engine"]).engine.dialect.name}
 
     @staticmethod

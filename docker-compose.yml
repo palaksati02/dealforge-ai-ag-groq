@@ -54,11 +54,13 @@ services:
       DB_HOST: mysql
       DB_PORT: "3306"
       DB_USER: root
+      DB_PASSWORD: "root"
       ADK_SERVICE_HOST: adk_service
       ADK_SERVICE_PORT: "8001"
       ADK_AUTOSTART: "False"
       USE_LLM_AGENTS: "true"
       DEMO_MODE: "false"
+      PUBLIC_URL: "http://bore.pub:39821"
     ports:
       - "80:8000"
       - "8000:8000"
