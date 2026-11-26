@@ -96,16 +96,23 @@ class Settings(BaseSettings):
     WEIGHT_COMPLIANCE: Decimal = Decimal("0.15")
     WEIGHT_SPECIFICATION: Decimal = Decimal("0.15")
 
+    @staticmethod
+    def _normalize_pg_url(url: str) -> str:
+        """Pin the psycopg2 driver (SQLAlchemy 2.1 defaults postgresql:// to psycopg v3)."""
+        if url.startswith("postgres://"):
+            url = "postgresql://" + url[len("postgres://"):]
+        if url.startswith("postgresql://"):
+            url = "postgresql+psycopg2://" + url[len("postgresql://"):]
+        return url
+
     @property
     def database_url(self) -> str:
         # Standard cloud PaaS environment variable (Render, Railway, Heroku)
         env_db_url = os.environ.get("DATABASE_URL")
         if env_db_url:
-            if env_db_url.startswith("postgres://"):
-                env_db_url = env_db_url.replace("postgres://", "postgresql://", 1)
-            return env_db_url
+            return self._normalize_pg_url(env_db_url)
         if self.DATABASE_URL_OVERRIDE:
-            return self.DATABASE_URL_OVERRIDE
+            return self._normalize_pg_url(self.DATABASE_URL_OVERRIDE)
         # URL encode password if needed
         import urllib.parse
         encoded_pass = urllib.parse.quote_plus(self.DB_PASSWORD)
