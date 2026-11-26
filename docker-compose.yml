@@ -1,0 +1,92 @@
+# DealForge AI - local/VM deployment. Secrets come from .env (see .env.example); none are hardcoded here.
+#   docker compose up --build -d                          # app + adk + mysql
+#   docker compose --profile observability up -d          # + self-hosted Langfuse (then create keys in its UI)
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: dealforge_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      MYSQL_DATABASE: ${DB_NAME:-dealforge_db}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Independent Google ADK agent, exposed over the official A2A protocol (Agent Card + JSON-RPC)
+  adk_service:
+    build: .
+    container_name: dealforge_adk_service
+    restart: unless-stopped
+    command: ["uvicorn", "app.adk_service.server:adk_app", "--host", "0.0.0.0", "--port", "8001"]
+    env_file: .env
+    environment:
+      ADK_SERVICE_HOST: adk_service
+      ADK_SERVICE_PORT: "8001"
+      ADK_PUBLIC_URL: http://adk_service:8001
+    ports:
+      - "8001:8001"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    container_name: dealforge_app
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      adk_service:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_USER: root
+      ADK_SERVICE_HOST: adk_service
+      ADK_SERVICE_PORT: "8001"
+      ADK_AUTOSTART: "False"
+    ports:
+      - "8000:8000"
+
+  # ---- optional: self-hosted Langfuse (profile "observability") ----
+  langfuse_db:
+    image: postgres:15-alpine
+    profiles: ["observability"]
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${LANGFUSE_DB_PASSWORD:?set LANGFUSE_DB_PASSWORD in .env}
+      POSTGRES_DB: langfuse
+    volumes:
+      - langfuse_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  langfuse:
+    image: langfuse/langfuse:2
+    profiles: ["observability"]
+    depends_on:
+      langfuse_db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://postgres:${LANGFUSE_DB_PASSWORD}@langfuse_db:5432/langfuse
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET:?set LANGFUSE_NEXTAUTH_SECRET in .env}
+      SALT: ${LANGFUSE_SALT:?set LANGFUSE_SALT in .env}
+      TELEMETRY_ENABLED: "false"
+
+volumes:
+  mysql_data:
+  langfuse_pgdata:

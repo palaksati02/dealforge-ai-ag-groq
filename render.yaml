@@ -1,0 +1,61 @@
+# Render Blueprint: one web service + managed PostgreSQL.
+# The Google ADK A2A agent runs inside the same service on loopback (real HTTP, ADK_AUTOSTART); for a
+# separately deployed ADK container use docker-compose.yml.
+# Deploy: Render dashboard -> New -> Blueprint -> select this repo. Set the `sync: false` secrets there.
+databases:
+  - name: dealforge-db
+    plan: free
+    databaseName: dealforge
+    user: dealforge
+
+services:
+  - type: web
+    name: dealforge-ai
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: APP_ENV
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: dealforge-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEMO_MODE
+        value: "true"              # set to "false" and add GROQ_API_KEY (or GEMINI_API_KEY) to run the LLM-backed agents
+      - key: LLM_PROVIDER
+        value: auto                # auto = Groq if GROQ_API_KEY is set, else Gemini
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+      - key: LLM_PRICE_INPUT_PER_M
+        value: "0.59"
+      - key: LLM_PRICE_OUTPUT_PER_M
+        value: "0.79"
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash
+      - key: ADK_AUTOSTART
+        value: "true"
+      - key: ADK_TIMEOUT_SECONDS
+        value: "30"
+      - key: LANGFUSE_PUBLIC_KEY
+        sync: false
+      - key: LANGFUSE_SECRET_KEY
+        sync: false
+      - key: LANGFUSE_HOST
+        value: https://cloud.langfuse.com
+      - key: LANGFUSE_PROJECT_URL        # your project page, e.g. https://cloud.langfuse.com/project/<id> (used for the UI link)
+        sync: false
+      - key: AUTO_APPROVAL_THRESHOLD
+        value: "1000000.00"
